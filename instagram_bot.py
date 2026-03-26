@@ -13,7 +13,7 @@ IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
 # Updated to a newer free model (Llama 3.1 8B) as Llama 3 8B is deprecated
-OPENROUTER_MODEL = "google/gemini-3-flash-preview"
+OPENROUTER_MODEL = "google/gemini-3-flash-preview:free"
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
