@@ -12,8 +12,14 @@ IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
 IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
-# Updated to a newer free model (Llama 3.1 8B) as Llama 3 8B is deprecated
-OPENROUTER_MODEL = "google/gemini-3-flash-preview:free"
+# High-quality free models from OpenRouter (ordered by performance)
+# Llama 3.3 70B and Gemini 2.0 Flash Lite are current best for complex instructions
+OPENROUTER_FREE_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemini-2.0-flash-lite-preview-02-05:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "openrouter/free"  # Last resort: let OpenRouter pick any available
+]
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
@@ -207,38 +213,49 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
         "HTTP-Referer": "https://github.com",
         "X-Title": "Legal AI Instagram Bot"
     }
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a viral Instagram content creator specializing in Indian legal rights. "
-                    "Your posts are emotional, powerful, and always go viral because they speak directly "
-                    "to common people's real problems. You write in simple English with relatable Indian context. "
-                    "Every post you write makes people stop scrolling, feel empowered, and share immediately."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
+
+    last_error = None
+    for model in OPENROUTER_FREE_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a viral Instagram content creator specializing in Indian legal rights. "
+                            "Your posts are emotional, powerful, and always go viral because they speak directly "
+                            "to common people's real problems. You write in simple English with relatable Indian context. "
+                            "Every post you write makes people stop scrolling, feel empowered, and share immediately."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.92,
+                "max_tokens": 1200
             }
-        ],
-        "temperature": 0.92,
-        "max_tokens": 900
-    }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=40)
-    response.raise_for_status()
-    data = response.json()
-    caption = data["choices"][0]["message"]["content"].strip()
+            response = requests.post(url, json=payload, headers=headers, timeout=50)
+            response.raise_for_status()
+            data = response.json()
+            caption = data["choices"][0]["message"]["content"].strip()
 
-    # Fallback: ensure app link always appears
-    if APP_LINK not in caption:
-        caption += f"\n\n💡 Get FREE instant legal help 24/7 → {APP_LINK}"
+            # Fallback: ensure app link always appears
+            if APP_LINK not in caption:
+                caption += f"\n\n💡 Get FREE instant legal help 24/7 → {APP_LINK}"
 
-    print(f"✅ Caption generated | Format: {fmt} | Topic: {item['topic'][:45]}...")
-    return caption, item["topic"], fmt
+            print(f"✅ Caption generated | Model: {model.split('/')[-1]} | Format: {fmt} | Topic: {item['topic'][:35]}...")
+            return caption, item["topic"], fmt
+
+        except Exception as e:
+            print(f"⚠️  Model {model} failed: {str(e)[:50]}... trying next.")
+            last_error = e
+            continue
+
+    raise last_error if last_error else Exception("All models failed")
 
 
 # ─────────────────────────────────────────
