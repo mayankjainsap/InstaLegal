@@ -12,8 +12,8 @@ IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
 IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
-# Best free model on OpenRouter (swap to "openai/gpt-4o-mini" for even better quality)
-OPENROUTER_MODEL = "meta-llama/llama-3-8b-instruct:free"
+# Updated to a newer free model (Llama 3.1 8B) as Llama 3 8B is deprecated
+OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
