@@ -12,13 +12,14 @@ IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
 IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
-# High-quality free models from OpenRouter (ordered by performance)
-# Llama 3.3 70B and Gemini 2.0 Flash Lite are current best for complex instructions
+# High-quality free models from OpenRouter (2026 verified IDs)
 OPENROUTER_FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "openrouter/free"  # Last resort: let OpenRouter pick any available
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "openrouter/free"
 ]
 
 # ─────────────────────────────────────────
@@ -241,7 +242,13 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
             response = requests.post(url, json=payload, headers=headers, timeout=50)
             response.raise_for_status()
             data = response.json()
-            caption = data["choices"][0]["message"]["content"].strip()
+            
+            # Safe extraction of content
+            choices = data.get("choices", [])
+            if not choices or not choices[0].get("message", {}).get("content"):
+                raise ValueError("Incomplete or empty response from model.")
+                
+            caption = choices[0]["message"]["content"].strip()
 
             # Fallback: ensure app link always appears
             if APP_LINK not in caption:
