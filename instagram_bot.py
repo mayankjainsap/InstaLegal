@@ -301,6 +301,11 @@ def generate_image_url(topic, fmt):
 # ─────────────────────────────────────────
 def post_to_instagram(image_url, caption):
     base_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}"
+    headers = {"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}
+
+    # Safe debug info
+    print(f"📡 API Version: v19.0 | Target ID: {IG_USER_ID[:4]}***{IG_USER_ID[-4:] if len(IG_USER_ID) > 4 else ''}")
+    print(f"🔑 Token check: length={len(IG_ACCESS_TOKEN)}, prefix={IG_ACCESS_TOKEN[:7]}...")
 
     print("📤 Creating media container...")
     container_resp = requests.post(
@@ -308,8 +313,8 @@ def post_to_instagram(image_url, caption):
         data={
             "image_url":    image_url,
             "caption":      caption,
-            "access_token": IG_ACCESS_TOKEN
         },
+        headers=headers,
         timeout=30
     )
     container_resp.raise_for_status()
@@ -322,7 +327,8 @@ def post_to_instagram(image_url, caption):
     for attempt in range(6):
         status_resp = requests.get(
             f"https://graph.facebook.com/v19.0/{container_id}",
-            params={"fields": "status_code", "access_token": IG_ACCESS_TOKEN},
+            params={"fields": "status_code"},
+            headers=headers,
             timeout=15
         )
         status = status_resp.json().get("status_code", "")
@@ -337,8 +343,8 @@ def post_to_instagram(image_url, caption):
         f"{base_url}/media_publish",
         data={
             "creation_id":  container_id,
-            "access_token": IG_ACCESS_TOKEN
         },
+        headers=headers,
         timeout=30
     )
     publish_resp.raise_for_status()
