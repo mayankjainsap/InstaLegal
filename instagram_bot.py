@@ -5,15 +5,15 @@ import time
 from datetime import datetime
 
 # ─────────────────────────────────────────
-#  CONFIG  (set these as GitHub Secrets)
+# CONFIG (loaded more robustly)
 # ─────────────────────────────────────────
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-IG_USER_ID         = os.environ.get("IG_USER_ID")
-IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip(' "')
+IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
+IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
 # Best free model on OpenRouter (swap to "openai/gpt-4o-mini" for even better quality)
-OPENROUTER_MODEL = "openai/gpt-4o-mini"
+OPENROUTER_MODEL = "meta-llama/llama-3-8b-instruct:free"
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
@@ -281,7 +281,7 @@ def post_to_instagram(image_url, caption):
     print("📤 Creating media container...")
     container_resp = requests.post(
         f"{base_url}/media",
-        params={
+        data={
             "image_url":    image_url,
             "caption":      caption,
             "access_token": IG_ACCESS_TOKEN
@@ -311,7 +311,7 @@ def post_to_instagram(image_url, caption):
     print("🚀 Publishing to Instagram...")
     publish_resp = requests.post(
         f"{base_url}/media_publish",
-        params={
+        data={
             "creation_id":  container_id,
             "access_token": IG_ACCESS_TOKEN
         },
