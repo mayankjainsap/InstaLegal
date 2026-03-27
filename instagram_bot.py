@@ -5,15 +5,22 @@ import time
 from datetime import datetime
 
 # ─────────────────────────────────────────
-#  CONFIG  (set these as GitHub Secrets)
+# CONFIG (loaded more robustly)
 # ─────────────────────────────────────────
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-IG_USER_ID         = os.environ.get("IG_USER_ID")
-IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip(' "')
+IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
+IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
-# Best free model on OpenRouter (swap to "openai/gpt-4o-mini" for even better quality)
-OPENROUTER_MODEL = "openai/gpt-4o-mini:free"
+# High-quality free models from OpenRouter (2026 verified IDs)
+OPENROUTER_FREE_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "openrouter/free"
+]
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
@@ -207,38 +214,55 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
         "HTTP-Referer": "https://github.com",
         "X-Title": "Legal AI Instagram Bot"
     }
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a viral Instagram content creator specializing in Indian legal rights. "
-                    "Your posts are emotional, powerful, and always go viral because they speak directly "
-                    "to common people's real problems. You write in simple English with relatable Indian context. "
-                    "Every post you write makes people stop scrolling, feel empowered, and share immediately."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
+
+    last_error = None
+    for model in OPENROUTER_FREE_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a viral Instagram content creator specializing in Indian legal rights. "
+                            "Your posts are emotional, powerful, and always go viral because they speak directly "
+                            "to common people's real problems. You write in simple English with relatable Indian context. "
+                            "Every post you write makes people stop scrolling, feel empowered, and share immediately."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.92,
+                "max_tokens": 1200
             }
-        ],
-        "temperature": 0.92,
-        "max_tokens": 900
-    }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=40)
-    response.raise_for_status()
-    data = response.json()
-    caption = data["choices"][0]["message"]["content"].strip()
+            response = requests.post(url, json=payload, headers=headers, timeout=50)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Safe extraction of content
+            choices = data.get("choices", [])
+            if not choices or not choices[0].get("message", {}).get("content"):
+                raise ValueError("Incomplete or empty response from model.")
+                
+            caption = choices[0]["message"]["content"].strip()
 
-    # Fallback: ensure app link always appears
-    if APP_LINK not in caption:
-        caption += f"\n\n💡 Get FREE instant legal help 24/7 → {APP_LINK}"
+            # Fallback: ensure app link always appears
+            if APP_LINK not in caption:
+                caption += f"\n\n💡 Get FREE instant legal help 24/7 → {APP_LINK}"
 
-    print(f"✅ Caption generated | Format: {fmt} | Topic: {item['topic'][:45]}...")
-    return caption, item["topic"], fmt
+            print(f"✅ Caption generated | Model: {model.split('/')[-1]} | Format: {fmt} | Topic: {item['topic'][:35]}...")
+            return caption, item["topic"], fmt
+
+        except Exception as e:
+            print(f"⚠️  Model {model} failed: {str(e)[:50]}... trying next.")
+            last_error = e
+            continue
+
+    raise last_error if last_error else Exception("All models failed")
 
 
 # ─────────────────────────────────────────
@@ -277,15 +301,20 @@ def generate_image_url(topic, fmt):
 # ─────────────────────────────────────────
 def post_to_instagram(image_url, caption):
     base_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}"
+    headers = {"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}
+
+    # Safe debug info
+    print(f"📡 API Version: v19.0 | Target ID: {IG_USER_ID[:4]}***{IG_USER_ID[-4:] if len(IG_USER_ID) > 4 else ''}")
+    print(f"🔑 Token check: length={len(IG_ACCESS_TOKEN)}, prefix={IG_ACCESS_TOKEN[:7]}...")
 
     print("📤 Creating media container...")
     container_resp = requests.post(
         f"{base_url}/media",
-        params={
+        data={
             "image_url":    image_url,
             "caption":      caption,
-            "access_token": IG_ACCESS_TOKEN
         },
+        headers=headers,
         timeout=30
     )
     container_resp.raise_for_status()
@@ -298,7 +327,8 @@ def post_to_instagram(image_url, caption):
     for attempt in range(6):
         status_resp = requests.get(
             f"https://graph.facebook.com/v19.0/{container_id}",
-            params={"fields": "status_code", "access_token": IG_ACCESS_TOKEN},
+            params={"fields": "status_code"},
+            headers=headers,
             timeout=15
         )
         status = status_resp.json().get("status_code", "")
@@ -311,10 +341,10 @@ def post_to_instagram(image_url, caption):
     print("🚀 Publishing to Instagram...")
     publish_resp = requests.post(
         f"{base_url}/media_publish",
-        params={
+        data={
             "creation_id":  container_id,
-            "access_token": IG_ACCESS_TOKEN
         },
+        headers=headers,
         timeout=30
     )
     publish_resp.raise_for_status()
