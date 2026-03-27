@@ -14,6 +14,7 @@ APP_LINK           = "https://www.legalaiassistant.in/"
 
 # High-quality free models from OpenRouter (2026 verified IDs)
 OPENROUTER_FREE_MODELS = [
+    "openai/gpt-4o-mini",   # paid
     "meta-llama/llama-3.2-3b-instruct:free"
 ]
 # ─────────────────────────────────────────
