@@ -12,15 +12,13 @@ IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
 IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
 APP_LINK           = "https://www.legalaiassistant.in/"
 
-# High-quality free models from OpenRouter (2026 verified IDs)
-OPENROUTER_MODELS = [
-    "openai/GPT-4o-mini:free"
+# ✅ Verified working free models on OpenRouter (March 2026)
+OPENROUTER_FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "google/gemma-2-9b-it:free",
     "meta-llama/llama-3.2-3b-instruct:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "openrouter/free"
 ]
 
 # ─────────────────────────────────────────
@@ -130,7 +128,6 @@ LEGAL_TOPICS = [
     },
 ]
 
-# 6 different viral post formats
 POST_FORMATS = [
     "STORY_HOOK",
     "SHOCKING_FACT",
@@ -188,10 +185,10 @@ LEGAL TOPIC: {item['topic']}
 
 RULES TO MAKE THIS POST IMPRESSIVE AND VIRAL:
 1. First line MUST stop the scroll — make it shocking, emotional, or intriguing. No generic openers.
-2. Use powerful emojis strategically: use emojis like these where appropriate: STOP, WARNING, CHECK MARK, LIGHTBULB, SCALES OF JUSTICE, RED CIRCLE, PIN
-3. Use a blank line between every point for easy mobile reading
+2. Use powerful emojis strategically where appropriate.
+3. Use a blank line between every point for easy mobile reading.
 4. Write short punchy sentences. Maximum 12 words per sentence.
-5. Use ALL CAPS for emphasis on key words only (not full sentences)
+5. Use ALL CAPS for emphasis on key words only (not full sentences).
 6. Naturally include this app promotion using one of these varied phrasings:
    - "Get INSTANT legal answers 24/7 at {APP_LINK}"
    - "India's FREE AI Legal Assistant is here: {APP_LINK}"
@@ -200,9 +197,9 @@ RULES TO MAKE THIS POST IMPRESSIVE AND VIRAL:
 7. End with a powerful call to action like: "TAG someone who NEEDS to know this" or "SAVE this — you will need it someday"
 8. End with 25 relevant hashtags mixing Hindi and English:
    Always include: #legalrights #knowyourrights #indianlaw #legaladvice #kanoonkijankari #legalindia #lawfacts #rightsofindians #legaltips #indiafacts
-   Plus 15 more topic-specific hashtags
-9. Total length: 200 to 300 words
-10. Today is {day} {timing} — make it feel current if possible
+   Plus 15 more topic-specific hashtags.
+9. Total length: 200 to 300 words.
+10. Today is {day} {timing} — make it feel current if possible.
 
 THE GOAL: Make people feel "I did NOT know this!" and immediately want to SAVE and SHARE.
 
@@ -219,6 +216,7 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
     last_error = None
     for model in OPENROUTER_FREE_MODELS:
         try:
+            print(f"🤖 Trying model: {model.split('/')[-1]}...")
             payload = {
                 "model": model,
                 "messages": [
@@ -243,12 +241,11 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
             response = requests.post(url, json=payload, headers=headers, timeout=50)
             response.raise_for_status()
             data = response.json()
-            
-            # Safe extraction of content
+
             choices = data.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
-                raise ValueError("Incomplete or empty response from model.")
-                
+                raise ValueError("Empty response from model.")
+
             caption = choices[0]["message"]["content"].strip()
 
             # Fallback: ensure app link always appears
@@ -259,18 +256,18 @@ Return ONLY the Instagram caption. Nothing else. No commentary."""
             return caption, item["topic"], fmt
 
         except Exception as e:
-            print(f"⚠️  Model {model} failed: {str(e)[:50]}... trying next.")
+            print(f"⚠️  Model {model.split('/')[-1]} failed: {str(e)[:80]}... trying next.")
             last_error = e
+            time.sleep(2)
             continue
 
-    raise last_error if last_error else Exception("All models failed")
+    raise last_error if last_error else Exception("All models failed — check your OPENROUTER_API_KEY")
 
 
 # ─────────────────────────────────────────
 #  STEP 2 — GENERATE STUNNING IMAGE
 # ─────────────────────────────────────────
 def generate_image_url(topic, fmt):
-    # Premium cinematic visual style matched to post format
     style_map = {
         "STORY_HOOK":     "cinematic dramatic courtroom scene India, powerful emotional lighting, photorealistic, 8k ultra detailed",
         "SHOCKING_FACT":  "bold premium editorial design, deep navy blue background, gold scales of justice, glowing typography, award winning",
@@ -302,52 +299,57 @@ def generate_image_url(topic, fmt):
 # ─────────────────────────────────────────
 def post_to_instagram(image_url, caption):
     base_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}"
-    headers = {"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}
+    headers  = {"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}
 
-    # Safe debug info
-    print(f"📡 API Version: v19.0 | Target ID: {IG_USER_ID[:4]}***{IG_USER_ID[-4:] if len(IG_USER_ID) > 4 else ''}")
-    print(f"🔑 Token check: length={len(IG_ACCESS_TOKEN)}, prefix={IG_ACCESS_TOKEN[:7]}...")
+    print(f"📡 Target IG ID: {IG_USER_ID[:4]}***{IG_USER_ID[-4:] if len(IG_USER_ID) > 4 else ''}")
+    print(f"🔑 Token prefix: {IG_ACCESS_TOKEN[:10]}...")
 
     print("📤 Creating media container...")
     container_resp = requests.post(
         f"{base_url}/media",
         data={
-            "image_url":    image_url,
-            "caption":      caption,
+            "image_url": image_url,
+            "caption":   caption,
         },
         headers=headers,
         timeout=30
     )
+    if not container_resp.ok:
+        print(f"❌ Container error: {container_resp.text}")
     container_resp.raise_for_status()
     container_id = container_resp.json().get("id")
     print(f"✅ Container created: {container_id}")
 
     print("⏳ Waiting for media to process...")
-    time.sleep(12)
+    time.sleep(15)
 
-    for attempt in range(6):
+    for attempt in range(8):
         status_resp = requests.get(
             f"https://graph.facebook.com/v19.0/{container_id}",
-            params={"fields": "status_code"},
+            params={"fields": "status_code,status"},
             headers=headers,
             timeout=15
         )
-        status = status_resp.json().get("status_code", "")
+        resp_json = status_resp.json()
+        status = resp_json.get("status_code", "")
         if status == "FINISHED":
             print("✅ Media ready!")
             break
-        print(f"  Status: {status} — retrying ({attempt+1}/6)...")
+        elif status == "ERROR":
+            print(f"❌ Media processing error: {resp_json}")
+            raise Exception(f"Media processing failed: {resp_json}")
+        print(f"  Status: {status} — retrying ({attempt+1}/8)...")
         time.sleep(8)
 
     print("🚀 Publishing to Instagram...")
     publish_resp = requests.post(
         f"{base_url}/media_publish",
-        data={
-            "creation_id":  container_id,
-        },
+        data={"creation_id": container_id},
         headers=headers,
         timeout=30
     )
+    if not publish_resp.ok:
+        print(f"❌ Publish error: {publish_resp.text}")
     publish_resp.raise_for_status()
     post_id = publish_resp.json().get("id")
     print(f"✅ Posted! Post ID: {post_id}")
@@ -362,10 +364,15 @@ def main():
     print(f"⚖️  Legal AI Instagram Bot — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print("=" * 55)
 
-    if not all([OPENROUTER_API_KEY, IG_USER_ID, IG_ACCESS_TOKEN]):
-        raise ValueError(
-            "Missing secrets! Check: OPENROUTER_API_KEY, IG_USER_ID, IG_ACCESS_TOKEN"
-        )
+    # Validate secrets
+    missing = []
+    if not OPENROUTER_API_KEY: missing.append("OPENROUTER_API_KEY")
+    if not IG_USER_ID:         missing.append("IG_USER_ID")
+    if not IG_ACCESS_TOKEN:    missing.append("IG_ACCESS_TOKEN")
+    if missing:
+        raise ValueError(f"Missing secrets: {', '.join(missing)}")
+
+    print(f"✅ All secrets loaded")
 
     try:
         caption, topic, fmt = generate_caption()
