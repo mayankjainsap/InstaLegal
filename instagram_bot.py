@@ -10,7 +10,8 @@ from datetime import datetime
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip(' "')
 IG_USER_ID         = os.environ.get("IG_USER_ID", "").strip(' "')
   # IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN", "").strip(' "')
-IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN", "").strip().replace("\n", "")
+IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN", "")
+IG_ACCESS_TOKEN = IG_ACCESS_TOKEN.replace("\n", "").replace("\r", "").strip()
 APP_LINK           = "https://www.legalaiassistant.in/"
 
 # High-quality free models from OpenRouter (2026 verified IDs)
