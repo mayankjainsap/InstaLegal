@@ -13,7 +13,7 @@ IG_ACCESS_TOKEN    = os.environ.get("IG_ACCESS_TOKEN")
 APP_LINK           = "https://www.legalaiassistant.in/"
 
 # Best free model on OpenRouter (swap to "openai/gpt-4o-mini" for even better quality)
-OPENROUTER_MODEL = "meta-llama/llama-3-8b-instruct:free"
+OPENROUTER_MODEL = "openai/gpt-4o-mini:free"
 
 # ─────────────────────────────────────────
 #  CONTENT LIBRARY — Rich & Emotional
