@@ -295,11 +295,25 @@ def generate_image_url(topic, fmt):
 #  STEP 3 — POST TO INSTAGRAM GRAPH API
 # ─────────────────────────────────────────
 def post_to_instagram(image_url, caption):
-    base_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}"
     headers = {"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}
+    
+    # Check if the provided ID is a Facebook Page ID, and try to get the linked IG account
+    real_ig_id = IG_USER_ID
+    try:
+        check_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}?fields=instagram_business_account"
+        check_resp = requests.get(check_url, headers=headers, timeout=15)
+        if check_resp.status_code == 200:
+            data = check_resp.json()
+            if "instagram_business_account" in data:
+                real_ig_id = data["instagram_business_account"]["id"]
+                print(f"🔄 Automatically resolved Facebook Page ID to Instagram Business ID: {real_ig_id[:4]}***")
+    except Exception as e:
+        print(f"⚠️ Check for Page ID failed, proceeding with original ID.")
+
+    base_url = f"https://graph.facebook.com/v19.0/{real_ig_id}"
 
     # Safe debug info
-    print(f"📡 API Version: v19.0 | Target ID: {IG_USER_ID[:4]}***{IG_USER_ID[-4:] if len(IG_USER_ID) > 4 else ''}")
+    print(f"📡 API Version: v19.0 | Target ID: {real_ig_id[:4]}***{real_ig_id[-4:] if len(real_ig_id) > 4 else ''}")
     print(f"🔑 Token check: length={len(IG_ACCESS_TOKEN)}, prefix={IG_ACCESS_TOKEN[:7]}...")
 
     print("📤 Creating media container...")
@@ -312,6 +326,12 @@ def post_to_instagram(image_url, caption):
         headers=headers,
         timeout=30
     )
+    
+    if container_resp.status_code == 400 and "GraphMethodException" in container_resp.text:
+        print("\n❌ CRITICAL ERROR: The IG_USER_ID you provided might be incorrect.")
+        print("Make sure you are using your Instagram Business Account ID, NOT your Facebook Page ID or App ID.")
+        print("If it is a Facebook Page ID, ensure it is linked to an Instagram Professional Account.")
+    
     container_resp.raise_for_status()
     container_id = container_resp.json().get("id")
     print(f"✅ Container created: {container_id}")
